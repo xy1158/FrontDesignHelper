@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'">
+<title>FrontDesignHelper · 视觉标注工作台</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">
+      <div class="logo">FDH</div>
+      <div class="brand-text">
+        <div class="brand-title">FrontDesignHelper</div>
+        <div class="brand-sub">视觉标注工作台 · 给 AI 一双眼睛</div>
+      </div>
+    </div>
+
+    <div class="tgroup">
+      <button id="btn-capture" class="btn primary" title="选择一个窗口并截取 (Ctrl+N)">截取窗口</button>
+      <button id="btn-capture-screen" class="btn" title="截取主显示器整屏">整屏</button>
+      <button id="btn-history" class="btn ghost" title="历史会话">历史</button>
+      <button id="btn-back" class="btn icon" title="回到上一个会话" disabled>← 上一条</button>
+      <select id="session-select" class="session-select" title="切换会话"></select>
+    </div>
+
+    <div class="tgroup tools" role="toolbar" aria-label="标注工具">
+      <button class="toolbtn active" data-tool="select" title="选择 / 移动 (V)">选择<kbd>V</kbd></button>
+      <button class="toolbtn" data-tool="box" title="框选并生成提示词条目 (B)">框选<kbd>B</kbd></button>
+      <button class="toolbtn" data-tool="move" title="截取区块并挪动 (M)">挪动<kbd>M</kbd></button>
+    </div>
+
+    <div class="tgroup">
+      <button id="btn-undo" class="btn icon" title="撤销 (Ctrl+Z)">撤销</button>
+      <button id="btn-delete" class="btn icon" title="删除选中标注 (Delete)">删除</button>
+      <button id="btn-fit" class="btn icon" title="适应窗口 (F)">适应</button>
+      <button id="btn-zoom100" class="btn icon" title="100% (1)">1:1</button>
+      <label class="chk" title="显示/隐藏叠加层"><input type="checkbox" id="chk-overlay" checked><span>叠加层</span></label>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="tgroup">
+      <button id="btn-copy" class="btn" title="把当前标注复制成给 AI 的文字指令">复制指令</button>
+      <button id="btn-datadir" class="btn ghost" title="打开数据目录">数据目录</button>
+      <span id="mcp-chip" class="chip" title="MCP 通道状态">MCP</span>
+    </div>
+  </header>
+
+  <main id="stage">
+    <section id="image-area">
+      <canvas id="canvas"></canvas>
+
+      <div id="empty" class="empty-state">
+        <div class="es-title">还没有截图</div>
+        <div class="es-steps">
+          <div><b>1</b> 打开 Godot / Unity 等编辑器，把要改的界面显示出来</div>
+          <div><b>2</b> 点左上角「截取窗口」，选那个窗口</div>
+          <div><b>3</b> 用「框选」圈出问题区域，右侧会自动生成提示词条目</div>
+          <div><b>4</b> 用「挪动」把某个区块拖到它该在的位置</div>
+          <div><b>5</b> 让 AI 通过 MCP 读取这些标注并落地修改</div>
+        </div>
+      </div>
+
+      <div id="hint" class="hint hidden"></div>
+      <div id="toasts" class="toasts"></div>
+
+      <div id="statusbar">
+        <span id="sb-source" class="sb-item">未加载</span>
+        <span class="sb-sep"></span>
+        <span id="sb-coords" class="sb-item mono">x=– y=–</span>
+        <span class="sb-sep"></span>
+        <span id="sb-zoom" class="sb-item mono">100%</span>
+        <span class="spacer"></span>
+        <span id="sb-tool" class="sb-item">工具：选择</span>
+      </div>
+    </section>
+
+    <aside id="prompt-area">
+      <div class="aside-head">
+        <div class="aside-head-row">
+          <span class="aside-title">提示词 / 标注</span>
+          <span id="pending-count" class="pill">0 条待处理</span>
+        </div>
+        <div id="session-meta" class="session-meta">未加载会话</div>
+      </div>
+
+      <div id="cards" class="cards"></div>
+
+      <div id="no-cards" class="aside-empty">
+        <div class="ae-icon">▭</div>
+        <div class="ae-title">还没有标注条目</div>
+        <div class="ae-text">在左侧用「框选」画出区域，这里会自动出现一条提示词输入框；用「挪动」把区块拖到目标位置，也会生成对应条目。</div>
+      </div>
+
+      <div class="aside-foot">
+        <div class="foot-row">
+          <span id="save-state" class="save-state">—</span>
+          <span id="counts" class="counts"></span>
+        </div>
+        <div class="foot-actions" style="margin-bottom:7px">
+          <span id="ai-state" class="ai-state"></span>
+          <button id="btn-run-ai" class="btn primary" title="让 AI 按当前标注直接开始修改">让 AI 开始修改</button>
+        </div>
+        <div class="foot-actions">
+          <button id="btn-mark-open" class="btn small">全部置为待处理</button>
+          <button id="btn-mark-done" class="btn small">标记会话完成</button>
+        </div>
+        <div class="foot-tip">AI 读取方式：MCP 工具 <code>get_instructions</code> / <code>get_capture_image</code> / <code>get_region_image</code> / <code>ack_instruction</code></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="modal-window" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>选择要截取的窗口</span>
+      <button class="modal-x" data-close>✕</button>
+    </div>
+    <div class="modal-toolbar">
+      <input id="win-filter" type="text" placeholder="按标题或进程过滤…" autocomplete="off">
+      <button id="win-refresh" class="btn small">刷新</button>
+    </div>
+    <div id="win-list" class="win-list"></div>
+    <div class="modal-foot">
+      <span class="muted">截取后会自动把目标窗口切到前台；若被系统阻止，会提示遮挡风险。</span>
+    </div>
+  </div>
+</div>
+
+<div id="modal-history" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>历史会话</span>
+      <button class="modal-x" data-close>✕</button>
+    </div>
+    <div id="hist-list" class="hist-list"></div>
+  </div>
+</div>
+
+<div id="modal-ai" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>让 AI 开始修改</span>
+      <button class="modal-x" data-close-ai>✕</button>
+    </div>
+    <div class="ai-body">
+      <div id="ai-summary" class="ai-summary"></div>
+      <div class="ai-row">
+        <label class="ai-field">
+          <span>投递方式</span>
+          <select id="ai-mode" class="ai-select">
+            <option value="paste">备用：粘贴到你正在看的 DSH 对话（需要输入框已聚焦）</option>
+            <option value="api" selected>投递到选中的 DSH 对话并自动开始（官方接口，已验证会真的执行）</option>
+            <option value="headless">后台任务（headless，不打开 DSH）</option>
+          </select>
+        </label>
+      </div>
+      <div class="ai-row" id="ai-dsh-row">
+        <label class="ai-field">
+          <span>DSH 窗口标题包含（据此定位窗口）</span>
+          <input id="ai-dsh-window" class="ai-select" type="text" value="DeepSeek Harness" spellcheck="false">
+        </label>
+        <label class="ai-check"><input type="checkbox" id="ai-autopaste" checked><span>自动粘贴并回车</span></label>
+      </div>
+      <div class="ai-hint" id="ai-dsh-hint">投递前请先在 DSH 里打开目标对话、把光标放进输入框；本应用只按上面的标题关键字定位窗口，不会碰其它窗口。</div>
+      <div class="ai-row" id="ai-ws-row">
+        <label class="ai-field">
+          <span>工作区（写进指令，headless 模式下也是它的工作目录）</span>
+          <select id="ai-workspace" class="ai-select"></select>
+        </label>
+        <button id="ai-pick-dir" class="btn small" title="选择其它目录作为工作区">浏览…</button>
+      </div>
+      <div class="ai-row" id="ai-conv-row">
+        <label class="ai-field">
+          <span>对话（仅 headless 模式：继续某条对话，或新建）</span>
+          <select id="ai-conversation" class="ai-select"></select>
+        </label>
+        <button id="ai-refresh" class="btn small" title="重新读取工作区与对话">刷新</button>
+      </div>
+      <div id="ai-conv-hint" class="ai-hint">选「＋ 新建对话」= 从零开始；选某条历史对话 = AI 会先读到它最近的若干条内容，再执行本次任务。</div>
+      <label class="ai-label">发给 AI 的指令（可改）</label>
+      <textarea id="ai-prompt" class="ai-prompt" rows="12" spellcheck="false"></textarea>
+      <div class="ai-warn" id="ai-run-warn">点「投递并开始」会把指令复制到剪贴板，再切到 DSH 窗口粘贴并回车 —— 也就是在 DSH 当前打开的那条对话里执行。会消耗 API 额度。</div>
+    </div>
+    <div class="modal-foot">
+      <div class="ai-foot">
+        <span id="ai-error" class="ai-err"></span>
+        <button id="ai-open-dsh" class="btn" title="在浏览器里打开 DSH 界面">打开 DSH</button>
+        <button id="ai-start" class="btn primary">开始</button>
+        <button id="ai-close" class="btn">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./js/util.js"></script>
+<script src="./js/editor.js"></script>
+<script src="./js/panels.js"></script>
+</body>
+</html>

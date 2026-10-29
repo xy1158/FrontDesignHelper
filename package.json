@@ -1,0 +1,47 @@
+{
+  "name": "frontdesignhelper",
+  "productName": "FrontDesignHelper",
+  "version": "1.0.0",
+  "description": "鍓嶇瑙嗚杈呭姪宸ヤ綔鍙帮細鎴彇 Godot/Unity 绛夌紪杈戝櫒鐣岄潰 -> 妗嗛€?鎸姩鏍囨敞 -> 閫氳繃 MCP 鎶婄簿纭殑瑙嗚鎸囦护浜ょ粰 AI",
+  "main": "src/main/main.js",
+  "type": "commonjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "mcp": "node src/mcp/server.js",
+    "smoke": "node test/smoke.js",
+    "mcp:config": "node scripts/print-mcp-config.js"
+  },
+  "keywords": [
+    "mcp",
+    "godot",
+    "unity",
+    "ui",
+    "screenshot",
+    "annotation"
+  ],
+  "license": "MIT",
+  "author": "FrontDesignHelper",
+  "devDependencies": {
+    "electron": "^36.9.5",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.fdh.frontdesignhelper",
+    "productName": "FrontDesignHelper",
+    "asar": false,
+    "directories": { "output": "dist" },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "README.md"
+    ],
+    "win": {
+      "target": ["portable"]
+    },
+    "portable": {
+      "artifactName": "FrontDesignHelper-${version}-portable.exe"
+    },
+    "compression": "normal"
+  }}

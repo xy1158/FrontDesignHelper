@@ -1,0 +1,24 @@
+# 依赖与运行时
+node_modules/
+
+# 构建产物（app/ 约 289MB，dist/*.zip 约 112MB，均超过 GitHub 单文件 100MB 限制）
+app/
+dist/
+dist-build/
+
+# 本地缓存
+.npm-cache/
+.electron-cache/
+.eb-cache/
+.tmp/
+*.log
+
+# 用户数据：截图、标注、日志（含你的屏幕内容，绝不能提交）
+data/
+
+# 编辑器/系统
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
