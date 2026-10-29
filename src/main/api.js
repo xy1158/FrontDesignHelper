@@ -469,6 +469,7 @@ function getInstructions(args) {
   const basePath = store.imagePath(id, 'base');
   const annotatedPath = store.imagePath(id, 'annotated');
   const instructions = (s.annotations || []).map((ann, i) => {
+    const ep = store.effectivePrompt(ann);
     const base = {
       index: i + 1,
       id: ann.id,
@@ -476,6 +477,9 @@ function getInstructions(args) {
       status: ann.status || 'pending',
       color: ann.color,
       prompt: ann.prompt || '',
+      promptMissing: !String(ann.prompt || '').trim(),
+      promptAuto: ep.auto,
+      promptEffective: ep.text,
       aiNote: ann.aiNote || ''
     };
     if (ann.type === 'move') {

@@ -313,3 +313,30 @@ AI 依次调用了 `mcp__frontdesignhelper__get_instructions`、`read_image`、`
 `tools/check.js` 之外再加一条人工检查：`*.cmd` / `*.ps1` 非 ASCII 计数必须为 0。
 
 回归（改名后）：`tools/check.js` 通过、`smoke` 78/78、`ui-flow` 19/19、`mcp-stdio` 14/14。
+
+## 14. 挪动类标注支持「留空即按挪动结果执行」
+
+用户反馈：挪动已经用位置表达了意图，再强迫写提示词是多余的一步。
+
+实现：
+
+- `store.effectivePrompt(ann)`：统一决定「实际执行用的提示词」。
+  - 有提示词 → 原样返回，`auto=false`；
+  - `move` 且提示词为空 → 自动生成
+    `（未填写提示词，按挪动结果执行）把该区块移动到目标位置：区块左上角 (x, y)，位移 dx=+n dy=+n`，`auto=true`；
+  - `box` 且为空 → 返回空串（没有可执行语义，调用方跳过）。
+- `renderMarkdown` 用 `effectivePrompt` 写文档，并额外标注 `- 提示词来源：用户未填写，自动按挪动结果执行`；
+  文档开头补一条约定：挪动类留空必须执行，框选类留空可跳过。
+- `getInstructions` 的结构化数据新增 `promptMissing` / `promptAuto` / `promptEffective` 三个字段
+  （`prompt` 仍保留用户原文，便于区分「用户写的」和「系统补的」）；离线版 `src/mcp/server.js` 同步。
+- 投递指令（`buildAgentPrompt`）按类型分别统计：挪动没写提示词的 **仍必须执行**，框选没写提示词的跳过；
+  并新增第 3b 步明确「挪动类即使没写提示词，也要把 from 区域挪到 to 位置」。
+- 弹窗与卡片文案同步：挪动卡片占位改为「可留空：留空就按挪动结果执行」。
+
+验收：
+
+- 数据层：`smoke` 新增 5 条断言（自动指令文本、目标坐标、来源标注、`effectivePrompt` 对 move/box 的返回值），83/83 通过。
+- 接口层：实测 `getInstructions` 返回
+  `promptAuto=true`、`promptEffective=（未填写提示词，按挪动结果执行）…区块左上角 (300, 400)，位移 dx=+200 dy=+200`，
+  同时 `markdown` 含「按挪动结果执行」；框选留空则是 `promptMissing=true`、`promptAuto=false`。
+- `ui-flow` 19/19、`mcp-stdio` 14/14。

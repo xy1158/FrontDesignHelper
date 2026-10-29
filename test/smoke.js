@@ -131,6 +131,16 @@ async function testStore() {
   ok('annotated.png 落盘', !!store.imagePath(s.id, 'annotated'));
   ok('summary.hasAnnotated', store.listSessions()[0].hasAnnotated === true);
 
+  // 挪动类没写提示词：指令文档要自动按「挪到目标位置」生成可执行指令
+  store.addAnnotation(s.id, { type: 'move', from: { x: 10, y: 20, w: 40, h: 30 }, to: { x: 90, y: 120 } });
+  const mdAuto = fs.readFileSync(path.join(store.dirOf(s.id), 'instructions.md'), 'utf8');
+  ok('空提示词的挪动生成自动指令', mdAuto.indexOf('按挪动结果执行') >= 0);
+  ok('自动指令含目标左上角坐标', /区块左上角 \(90, 120\)/.test(mdAuto), (mdAuto.match(/区块左上角[^）]*）/) || [''])[0]);
+  ok('自动指令标注来源', mdAuto.indexOf('自动按挪动结果执行') >= 0);
+  const ep = store.effectivePrompt({ type: 'move', prompt: '', from: { x: 0, y: 0, w: 10, h: 10 }, to: { x: 30, y: 40 } });
+  ok('effectivePrompt 对 move 返回 auto', ep.auto === true && ep.text.indexOf('30, 40') >= 0);
+  const ep2 = store.effectivePrompt({ type: 'box', prompt: '', rect: { x: 0, y: 0, w: 10, h: 10 } });
+  ok('effectivePrompt 对无提示词 box 返回空', ep2.auto === false && ep2.text === '');
   store.deleteSession(s.id);
   ok('deleteSession 删除目录', !fs.existsSync(store.dirOf(s.id)));
 }

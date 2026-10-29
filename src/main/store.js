@@ -247,6 +247,22 @@ function annStatusLabel(st) {
 
 function annTypeLabel(t) { return t === 'move' ? '挪动' : '框选'; }
 
+// 挪动类标注即使没写提示词，也要能执行：用「挪到目标位置」作为指令
+function effectivePrompt(a) {
+  const raw = typeof a.prompt === 'string' ? a.prompt.trim() : '';
+  if (raw) return { text: raw, auto: false };
+  if (a.type === 'move') {
+    const dx = a.to.x - a.from.x;
+    const dy = a.to.y - a.from.y;
+    return {
+      text: '（未填写提示词，按挪动结果执行）把该区块移动到目标位置：区块左上角 ' +
+        '(' + a.to.x + ', ' + a.to.y + ')，位移 dx=' + (dx >= 0 ? '+' : '') + dx + ' dy=' + (dy >= 0 ? '+' : '') + dy,
+      auto: true
+    };
+  }
+  return { text: '', auto: false };
+}
+
 function renderMarkdown(s) {
   const L = [];
   const anns = s.annotations || [];
@@ -267,6 +283,7 @@ function renderMarkdown(s) {
   L.push('> 坐标约定：以截图左上角为原点 (0,0)，单位为像素，x 向右、y 向下。');
   L.push('> 换算到引擎内坐标时，若坐标系原点不在窗口左上角，请整体做平移/缩放后再套用。');
   L.push('> 也可用 MCP 直接取数：get_instructions / get_capture_image / get_region_image / ack_instruction。');
+  L.push('> 约定：挪动类标注即使没写提示词，也表示「把该区块挪到目标位置」，必须执行；框选类没写提示词的可以跳过。');
   const origin = s.source && s.source.imageOrigin;
   if (origin && (origin.x !== 0 || origin.y !== 0)) {
     L.push('> 注意：本图相对窗口有偏移，图片坐标 + (' + origin.x + ',' + origin.y + ') = 窗口坐标。');
@@ -293,7 +310,9 @@ function renderMarkdown(s) {
       L.push('- 区域中心：x=' + Math.round(a.rect.x + a.rect.w / 2) + ' y=' + Math.round(a.rect.y + a.rect.h / 2));
     }
     L.push('- 标注 ID：' + a.id);
-    L.push('- 提示词：' + (a.prompt ? a.prompt.replace(/\r?\n/g, ' ') : '（用户尚未填写）'));
+    const ep = effectivePrompt(a);
+    L.push('- 提示词：' + (ep.text ? ep.text.replace(/\r?\n/g, ' ') : '（用户尚未填写；框选类无提示词可跳过）'));
+    if (ep.auto) L.push('- 提示词来源：用户未填写，自动按挪动结果执行');
     if (a.aiNote) L.push('- AI 备注：' + a.aiNote);
     L.push('');
   });
@@ -319,6 +338,7 @@ module.exports = {
   imagePath,
   saveAnnotated,
   renderMarkdown,
+  effectivePrompt,
   normalizeAnn,
   dirOf
 };

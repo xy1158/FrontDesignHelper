@@ -238,9 +238,11 @@ function offlineInstructions(id) {
   const basePath = store.imagePath(id, 'base');
   const annotatedPath = store.imagePath(id, 'annotated');
   const instructions = (s.annotations || []).map(function (ann, i) {
+    const ep = store.effectivePrompt(ann);
     const base = {
       index: i + 1, id: ann.id, type: ann.type, status: ann.status || 'pending',
-      color: ann.color, prompt: ann.prompt || '', aiNote: ann.aiNote || ''
+      color: ann.color, prompt: ann.prompt || '', aiNote: ann.aiNote || '',
+      promptMissing: !String(ann.prompt || '').trim(), promptAuto: ep.auto, promptEffective: ep.text
     };
     if (ann.type === 'move') {
       base.from = ann.from;

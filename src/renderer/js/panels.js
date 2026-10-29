@@ -166,7 +166,7 @@
         '<button class="del" title="删除这条标注">✕</button>' +
       '</div>' +
       '<textarea class="prompt" rows="2" placeholder="' +
-        (a.type === 'move' ? '说明这个区块要挪到哪里、为什么：例如「标题栏挪到顶部居中」' : '说明这里要改成什么样：例如「这个按钮改为蓝色主色调、圆角 8px、宽度 240」') +
+        (a.type === 'move' ? '可留空：留空就按挪动结果执行（把区块挪到目标位置）。也可以补充说明，例如「标题栏挪到顶部居中」' : '说明这里要改成什么样：例如「这个按钮改为蓝色主色调、圆角 8px、宽度 240」') +
       '"></textarea>' +
       '<div class="card-foot">' +
         '<span class="status' + statusCls(a.status) + '">' + statusLabel(a.status) + '</span>' +
@@ -659,7 +659,8 @@
   function buildAgentPrompt() {
     const st = ed.state;
     const anns = ed.state.annotations;
-    const noPrompt = anns.filter(function (a) { return !String(a.prompt || '').trim(); }).length;
+    const noPromptMove = anns.filter(function (a) { return a.type === 'move' && !String(a.prompt || '').trim(); }).length;
+    const noPromptBox = anns.filter(function (a) { return a.type === 'box' && !String(a.prompt || '').trim(); }).length;
     const lines = [];
     lines.push('你是 FrontDesignHelper 的执行端。用户已经在界面上用「框选 / 挪动」标注了要改的地方，请按步骤工作：');
     lines.push('');
@@ -667,13 +668,17 @@
     lines.push('2) 标注里的 rect(x,y,w,h) 或 from/to 都是截图像素坐标，原点在截图左上角；');
     lines.push('   若返回的 imageOrigin 不为 (0,0)，真实窗口坐标 = 图片坐标 + imageOrigin。');
     lines.push('3) 用 godot-ai（或该界面所属引擎的）MCP 工具真正修改界面：按提示词改属性、节点位置、锚点与布局。');
+    lines.push('3b) 「挪动」类标注即使没写提示词，也必须执行：把 from 区域的那个区块移动到 to 指定的位置（to 是区块左上角坐标）。');
     lines.push('4) 每改完一条，立刻调用 frontdesignhelper 的 ack_instruction（annotation_id、status=done、note=一句话说明实际改了什么）。');
     lines.push('5) 做不到的条用 status=skipped，并在 note 里写清原因。');
     lines.push('6) 不要新增截图，不要改动与提示词无关的内容；全部完成后用一句话总结。');
     lines.push('');
     lines.push('工作区（当前目录）：' + (aiWorkspace || '(未指定)'));
     lines.push('来源窗口：' + ((st.source && st.source.title) || '(未知)') + '（' + ((st.source && st.source.process) || '') + '）');
-    lines.push('标注共 ' + anns.length + ' 条' + (noPrompt ? ('，其中 ' + noPrompt + ' 条还没有提示词（可跳过）') : ''));
+    let tail = '标注共 ' + anns.length + ' 条';
+    if (noPromptMove) tail += '；其中 ' + noPromptMove + ' 条「挪动」没写提示词 —— 这类**仍必须执行**：按 from/to 把区块挪到目标位置';
+    if (noPromptBox) tail += '；' + noPromptBox + ' 条「框选」没写提示词，可跳过';
+    lines.push(tail);
     return lines.join('\n');
   }
 
@@ -689,10 +694,12 @@
     if (!st.sessionId) { U.toast('先截一张图并加上标注', 'warn'); return; }
     if (!ed.state.annotations.length) { U.toast('还没有标注：先用「框选」圈出要改的地方', 'warn'); return; }
     const anns = ed.state.annotations;
-    const noPrompt = anns.filter(function (a) { return !String(a.prompt || '').trim(); }).length;
+    const noPromptMove = anns.filter(function (a) { return a.type === 'move' && !String(a.prompt || '').trim(); }).length;
+    const noPromptBox = anns.filter(function (a) { return a.type === 'box' && !String(a.prompt || '').trim(); }).length;
     document.getElementById('ai-summary').innerHTML =
       '会话 <b>' + U.esc(String(st.sessionId)) + '</b> · 标注 <b>' + anns.length + '</b> 条' +
-      (noPrompt ? ('（<b>' + noPrompt + '</b> 条没写提示词，会被跳过）') : '') +
+      (noPromptMove ? ('（<b>' + noPromptMove + '</b> 条挪动没写提示词 → 按挪动结果执行）') : '') +
+      (noPromptBox ? ('（<b>' + noPromptBox + '</b> 条框选没写提示词 → 跳过）') : '') +
       '<br>来源 ' + U.esc(String((st.source && st.source.title) || '(未知)'));
     document.getElementById('ai-error').textContent = '';
     document.getElementById('modal-ai').classList.remove('hidden');
