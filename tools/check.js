@@ -18,6 +18,12 @@ function checkJs(file) {
     console.log('  ✗ ' + path.relative(ROOT, file) + ' -> ' + e.message);
     return;
   }
+  // 行尾统一用 LF：CRLF 会让文本补丁的锚点匹配失败（本项目踩过）
+  if (src.indexOf('\r') >= 0) {
+    bad++;
+    console.log('  ✗ ' + path.relative(ROOT, file) + ' -> 含 CRLF 行尾');
+    return;
+  }
   // 额外检查：源码里不应出现「字符串里夹着字面 \n」这种补丁残留
   if (/\\n {2,}(const|let|var|pasted|if|for)\b/.test(src)) {
     bad++;
